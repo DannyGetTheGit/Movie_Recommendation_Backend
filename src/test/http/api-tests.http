@@ -1,0 +1,115 @@
+@baseUrl = http://localhost:8080
+
+### ─── AUTH ──────────────────────────────────────────────────────────────────
+
+### 1. Register a new user
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 2. Login — REST Client auto-extracts the token for all requests below
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### ⬇ Run step 2 first — this variable is used by every protected request
+@token = {{login.response.body.$.token}}
+
+### ─── MOVIES ─────────────────────────────────────────────────────────────────
+
+### 3. Browse popular movies (public — no token needed)
+GET {{baseUrl}}/api/movies
+
+### 4. Search movies (public)
+GET {{baseUrl}}/api/movies?query=inception
+
+### 5. Get movie details — also pushes to recently-viewed stack
+###    tmdbId 27205 = Inception
+GET {{baseUrl}}/api/movies/27205
+Authorization: Bearer {{token}}
+
+### 6. Get recently viewed stack (should show Inception after step 5)
+GET {{baseUrl}}/api/movies/recently-viewed
+Authorization: Bearer {{token}}
+
+### ─── RATINGS ─────────────────────────────────────────────────────────────────
+
+### 7. Rate Inception (score 1–10)
+POST {{baseUrl}}/api/ratings
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "tmdbId": 27205,
+  "score": 9
+}
+
+### 8. Rate another movie to improve recommendation quality (The Dark Knight = 155)
+POST {{baseUrl}}/api/ratings
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "tmdbId": 155,
+  "score": 10
+}
+
+### 9. View your ratings — need userId from the login response
+# @name loginForId
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "test@example.com", "password": "password123"}
+
+###
+@userId = {{loginForId.response.body.$.userId}}
+GET {{baseUrl}}/api/users/{{userId}}/ratings
+Authorization: Bearer {{token}}
+
+### ─── WATCHLIST ───────────────────────────────────────────────────────────────
+
+### 10. Add Inception to watchlist
+POST {{baseUrl}}/api/watchlist
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "tmdbId": 27205
+}
+
+### 11. View watchlist
+GET {{baseUrl}}/api/watchlist
+Authorization: Bearer {{token}}
+
+### 12. Remove Inception from watchlist
+DELETE {{baseUrl}}/api/watchlist/27205
+Authorization: Bearer {{token}}
+
+### ─── RECOMMENDATIONS ─────────────────────────────────────────────────────────
+
+### 13. Get personalized recommendations
+###     Rate a few movies first (steps 7-8) for collaborative filtering results.
+###     Falls back to popular movies for new users with no ratings.
+GET {{baseUrl}}/api/recommendations
+Authorization: Bearer {{token}}
+
+### ─── SECURITY CHECK ─────────────────────────────────────────────────────────
+
+### 14. Unauthenticated request — should return 403
+POST {{baseUrl}}/api/ratings
+Content-Type: application/json
+
+{
+  "tmdbId": 27205,
+  "score": 8
+}
