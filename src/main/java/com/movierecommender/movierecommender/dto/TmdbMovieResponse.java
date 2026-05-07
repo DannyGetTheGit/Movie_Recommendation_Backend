@@ -22,6 +22,9 @@ public class TmdbMovieResponse {
     @JsonProperty("poster_path")
     private String posterPath;
 
+    // Runtime is only returned by the /movie/{id} detail endpoint, not search results
+    private Integer runtime;
+
     @JsonProperty("genre_ids")
     private List<Integer> genreIds;
 

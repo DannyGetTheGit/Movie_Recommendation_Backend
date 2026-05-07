@@ -1,61 +1,51 @@
 package com.movierecommender.movierecommender.controller;
 
-import org.springframework.http.HttpStatus;
+import com.movierecommender.movierecommender.dto.MovieDto;
+import com.movierecommender.movierecommender.model.User;
+import com.movierecommender.movierecommender.service.AuthService;
+import com.movierecommender.movierecommender.service.MovieService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
+import java.security.Principal;
 import java.util.List;
 
-// Simple in-memory movie controller — no database, no external API needed.
-//
-// @RestController        : every method returns JSON automatically
-// @RequestMapping(...)   : all routes in this class start with /api/movies
 @RestController
 @RequestMapping("/api/movies")
+@RequiredArgsConstructor
 public class MovieController {
 
-    // Movie is a Java record: a compact, immutable data class.
-    // Jackson (the JSON library) automatically converts it to/from JSON.
-    record Movie(int id, String title, String genre, double rating) {}
+    private final MovieService movieService;
+    private final AuthService authService;
 
-    // In-memory list — lives only while the app is running.
-    // ArrayList gives us fast access by index and easy add/remove.
-    private final List<Movie> movies = new ArrayList<>(List.of(
-            new Movie(1, "Inception",       "Sci-Fi",  8.8),
-            new Movie(2, "The Dark Knight", "Action",  9.0),
-            new Movie(3, "Interstellar",    "Sci-Fi",  8.6)
-    ));
-
-    private int nextId = 4;
-
-    // ─── GET /api/movies ──────────────────────────────────────────────────────
-    // Returns the full list of movies.
+    // GET /api/movies             → returns popular movies from TMDB
+    // GET /api/movies?query=dune  → searches TMDB for that title
     @GetMapping
-    List<Movie> getAllMovies() {
-        return movies;
+    ResponseEntity<List<MovieDto>> getMovies(@RequestParam(required = false) String query) {
+        List<MovieDto> movies = (query != null && !query.isBlank())
+                ? movieService.searchMovies(query)
+                : movieService.getPopularMovies();
+        return ResponseEntity.ok(movies);
     }
 
-    // ─── GET /api/movies/{id} ─────────────────────────────────────────────────
-    // Returns one movie by its id, or 404 if not found.
-    // {id} in the URL is captured by @PathVariable and passed into the method.
-    @GetMapping("/{id}")
-    ResponseEntity<Movie> getMovieById(@PathVariable int id) {
-        return movies.stream()
-                .filter(m -> m.id() == id)
-                .findFirst()
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    // GET /api/movies/{tmdbId} → full details for one movie; also records it in
+    // the user's recently-viewed stack if the caller is authenticated
+    @GetMapping("/{tmdbId}")
+    ResponseEntity<MovieDto> getMovieDetails(@PathVariable Long tmdbId, Principal principal) {
+        Long userId = (principal != null) ? resolveUserId(principal) : null;
+        MovieDto movie = movieService.getMovieDetails(tmdbId, userId);
+        return movie != null ? ResponseEntity.ok(movie) : ResponseEntity.notFound().build();
     }
 
-    // ─── POST /api/movies ─────────────────────────────────────────────────────
-    // Adds a new movie. The request body must be JSON, e.g.:
-    //   { "title": "Dune", "genre": "Sci-Fi", "rating": 8.0 }
-    // The id field is ignored — we assign it ourselves.
-    @PostMapping
-    ResponseEntity<Movie> addMovie(@RequestBody Movie body) {
-        Movie newMovie = new Movie(nextId++, body.title(), body.genre(), body.rating());
-        movies.add(newMovie);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newMovie);
+    // GET /api/movies/recently-viewed → the last 20 movies the current user viewed
+    @GetMapping("/recently-viewed")
+    ResponseEntity<List<MovieDto>> getRecentlyViewed(Principal principal) {
+        return ResponseEntity.ok(movieService.getRecentlyViewed(resolveUserId(principal)));
+    }
+
+    private Long resolveUserId(Principal principal) {
+        User user = authService.getUserByEmail(principal.getName());
+        return user.getId();
     }
 }

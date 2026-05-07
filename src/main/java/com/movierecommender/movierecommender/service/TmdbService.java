@@ -66,17 +66,20 @@ public class TmdbService {
         return dto;
     }
 
+    // Used for search results — TMDB search does not include runtime or genres
     private MovieDto toMovieDto(TmdbMovieResponse r) {
         return MovieDto.builder()
                 .tmdbId(r.getId())
                 .title(r.getTitle())
                 .overview(r.getOverview())
                 .releaseDate(r.getReleaseDate())
-                .voteAverage(r.getVoteAverage())
+                .year(parseYear(r.getReleaseDate()))
+                .rating(r.getVoteAverage())
                 .poster(r.getPosterPath() != null ? POSTER_BASE + r.getPosterPath() : null)
                 .build();
     }
 
+    // Used for the /movie/{id} detail endpoint — includes runtime and genre names
     private MovieDto toMovieDtoWithGenres(TmdbMovieResponse r) {
         String genres = "";
         if (r.getGenres() != null) {
@@ -90,8 +93,22 @@ public class TmdbService {
                 .genre(genres)
                 .overview(r.getOverview())
                 .releaseDate(r.getReleaseDate())
-                .voteAverage(r.getVoteAverage())
+                .year(parseYear(r.getReleaseDate()))
+                .rating(r.getVoteAverage())
+                .length(r.getRuntime())
                 .poster(r.getPosterPath() != null ? POSTER_BASE + r.getPosterPath() : null)
                 .build();
+    }
+
+    // Pulls the 4-digit year out of TMDB's "YYYY-MM-DD" release date string
+    private Integer parseYear(String releaseDate) {
+        if (releaseDate != null && releaseDate.length() >= 4) {
+            try {
+                return Integer.parseInt(releaseDate.substring(0, 4));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 }

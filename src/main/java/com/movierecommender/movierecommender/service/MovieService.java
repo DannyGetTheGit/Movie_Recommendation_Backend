@@ -39,17 +39,21 @@ public class MovieService {
         return recentlyViewedStack.getHistory(userId);
     }
 
-    // Ensures a TMDB movie exists in our DB before we attach ratings/watchlist to it
+    // Saves a TMDB movie to our database the first time it is accessed.
+    // This lets us attach ratings and watchlist entries to a local movie row.
     public Movie persistMovieIfAbsent(MovieDto dto) {
         return movieRepository.findByTmdbId(dto.getTmdbId())
                 .orElseGet(() -> movieRepository.save(Movie.builder()
                         .tmdbId(dto.getTmdbId())
                         .title(dto.getTitle())
                         .genre(dto.getGenre())
+                        .rating(dto.getRating())
+                        .length(dto.getLength())
+                        .year(dto.getYear())
+                        .age(dto.getAge())
                         .poster(dto.getPoster())
                         .overview(dto.getOverview())
                         .releaseDate(dto.getReleaseDate())
-                        .voteAverage(dto.getVoteAverage())
                         .build()));
     }
 }

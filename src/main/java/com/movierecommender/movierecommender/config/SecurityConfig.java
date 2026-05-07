@@ -4,6 +4,7 @@ import com.movierecommender.movierecommender.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -28,10 +29,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            )
-            .headers(headers -> headers
-                .frameOptions(frame -> frame.sameOrigin())
+                // Public: register and login never require a token
+                .requestMatchers("/api/auth/**").permitAll()
+                // Public: browsing and searching movies does not require login
+                .requestMatchers(HttpMethod.GET, "/api/movies", "/api/movies/**").permitAll()
+                // Everything else (ratings, watchlist, recommendations) requires a valid JWT
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
